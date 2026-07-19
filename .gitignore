@@ -4,9 +4,11 @@ data/processed/*
 !data/processed/.gitkeep
 models/*
 !models/.gitkeep
+!models/tuned_xgboost.json
 mlruns/
 **pycache**/
 venv/
 .env
 *.pyc
 .ipynb_checkpoints
+tmp_pytest/

@@ -11,10 +11,14 @@ fastapi
 uvicorn
 pydantic
 streamlit
+altair
 groq
 python-dotenv
+joblib
 matplotlib
 seaborn
 jupyter
 ipykernel
 pytest
+optuna
+requests

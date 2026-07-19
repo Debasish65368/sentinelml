@@ -1,0 +1,113 @@
+import sys
+from pathlib import Path
+
+import pandas as pd
+import pytest
+import shap
+from fastapi.testclient import TestClient
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+import api.main as api_main
+from src.train_models import _build_xgboost
+
+
+def make_payload():
+    payload = {f"V{i}": 0.0 for i in range(1, 29)}
+    payload.update(
+        {
+            "transaction_id": "test-transaction",
+            "Amount": 42.0,
+            "hour_of_day": 12.0,
+            "hour_sin": 0.0,
+            "hour_cos": -1.0,
+        }
+    )
+    return payload
+
+
+def make_test_model():
+    X = pd.DataFrame(
+        [
+            [0.0] * 32,
+            [1.0] * 32,
+            [-1.0] * 32,
+            [2.0] * 32,
+            [-2.0] * 32,
+            [3.0] * 32,
+        ],
+        columns=api_main.FEATURE_COLUMNS,
+    )
+    y = pd.Series([0, 1, 0, 1, 0, 1], name="Class")
+    model = _build_xgboost(
+        scale_pos_weight=1.0,
+        n_estimators=5,
+        max_depth=2,
+        learning_rate=0.2,
+    )
+    model.fit(X, y)
+    return model
+
+
+@pytest.fixture
+def client(monkeypatch):
+    model = make_test_model()
+
+    def fake_load_model_resources():
+        return {
+            "model": model,
+            "shap_explainer": shap.TreeExplainer(model),
+            "scaler": None,
+            "model_version": "test-model",
+        }
+
+    monkeypatch.setattr(api_main, "load_model_resources", fake_load_model_resources)
+    monkeypatch.setattr(api_main, "generate_explanation", lambda *args, **kwargs: "Mock explanation.")
+    with TestClient(api_main.app) as test_client:
+        yield test_client
+
+
+def test_health_works(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["model_loaded"] is True
+    assert body["shap_loaded"] is True
+
+
+def test_predict_returns_expected_schema(client):
+    response = client.post("/predict", json=make_payload())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"risk_score", "label", "transaction_id"}
+    assert 0 <= body["risk_score"] <= 1
+    assert body["label"] in {"fraud", "normal"}
+    assert body["transaction_id"] == "test-transaction"
+
+
+def test_explain_returns_expected_schema(client):
+    response = client.post("/explain", json=make_payload())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"risk_score", "label", "shap_contributions", "explanation"}
+    assert 0 <= body["risk_score"] <= 1
+    assert body["label"] in {"fraud", "normal"}
+    assert len(body["shap_contributions"]) == len(api_main.FEATURE_COLUMNS)
+    assert {"feature", "value", "contribution"}.issubset(body["shap_contributions"][0])
+    assert body["explanation"] == "Mock explanation."
+
+
+def test_invalid_input_returns_422(client):
+    payload = make_payload()
+    payload.pop("V1")
+
+    response = client.post("/predict", json=payload)
+
+    assert response.status_code == 422
+
