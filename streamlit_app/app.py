@@ -68,9 +68,11 @@ def predict_transactions(df):
 
 
 def style_predictions(df):
+    normal_style = "background-color: #eef7ee; color: #1a1a1a"
+    fraud_style = "background-color: #ffe3e3; color: #1a1a1a"
     return df.style.apply(
         lambda row: [
-            "background-color: #ffe3e3" if row["label"] == "fraud" else "background-color: #eef7ee"
+            fraud_style if row["label"] == "fraud" else normal_style
             for _ in row
         ],
         axis=1,
