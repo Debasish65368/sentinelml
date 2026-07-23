@@ -8,7 +8,14 @@ import shap
 from fastapi import FastAPI, HTTPException, Request
 from xgboost import XGBClassifier
 
-from api.schemas import ExplainRequest, ExplainResponse, PredictResponse, TransactionInput
+from api.schemas import (
+    ExplainRequest,
+    ExplainResponse,
+    PredictBatchRequest,
+    PredictBatchResponse,
+    PredictResponse,
+    TransactionInput,
+)
 from src.explain import explain_single_prediction, generate_explanation
 from src.train_models import _build_xgboost, _compute_scale_pos_weight, load_processed_splits
 
@@ -41,6 +48,18 @@ def _request_to_frame(transaction: TransactionInput) -> pd.DataFrame:
     if row.shape[1] != len(FEATURE_COLUMNS):
         raise ValueError(f"Expected {len(FEATURE_COLUMNS)} features, got {row.shape[1]}.")
     return row
+
+
+def _requests_to_frame(transactions: list[TransactionInput]) -> pd.DataFrame:
+    rows = []
+    for transaction in transactions:
+        payload = transaction.model_dump() if hasattr(transaction, "model_dump") else transaction.dict()
+        rows.append({feature: payload[feature] for feature in FEATURE_COLUMNS})
+
+    frame = pd.DataFrame(rows, columns=FEATURE_COLUMNS)
+    if frame.shape[1] != len(FEATURE_COLUMNS):
+        raise ValueError(f"Expected {len(FEATURE_COLUMNS)} features, got {frame.shape[1]}.")
+    return frame
 
 
 def _predict_probability(model, row):
@@ -132,6 +151,33 @@ def predict(transaction: TransactionInput, request: Request):
     )
 
 
+@app.post("/predict_batch", response_model=PredictBatchResponse)
+def predict_batch(batch: PredictBatchRequest, request: Request):
+    model = _require_model(request)
+    if not batch.transactions:
+        raise HTTPException(status_code=400, detail="No transactions provided.")
+
+    try:
+        frame = _requests_to_frame(batch.transactions)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    start_time = perf_counter()
+    risk_scores = model.predict_proba(frame)[:, 1]
+    elapsed_ms = (perf_counter() - start_time) * 1000
+    print(f"/predict_batch rows={len(batch.transactions)} latency_ms={elapsed_ms:.3f}")
+
+    predictions = [
+        PredictResponse(
+            risk_score=float(score),
+            label=_label_from_probability(float(score)),
+            transaction_id=transaction.transaction_id,
+        )
+        for score, transaction in zip(risk_scores, batch.transactions)
+    ]
+    return PredictBatchResponse(predictions=predictions)
+
+
 @app.post("/explain", response_model=ExplainResponse)
 def explain(transaction: ExplainRequest, request: Request):
     model = _require_model(request)
@@ -168,4 +214,3 @@ def explain(transaction: ExplainRequest, request: Request):
         shap_contributions=shap_contributions,
         explanation=genai_explanation,
     )
-

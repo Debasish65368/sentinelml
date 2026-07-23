@@ -90,6 +90,37 @@ def test_predict_returns_expected_schema(client):
     assert body["transaction_id"] == "test-transaction"
 
 
+def test_predict_batch_returns_predictions_in_order(client):
+    first_payload = make_payload()
+    first_payload["transaction_id"] = "first"
+    first_payload["V1"] = 0.0
+    second_payload = make_payload()
+    second_payload["transaction_id"] = "second"
+    second_payload["V1"] = 2.0
+
+    response = client.post(
+        "/predict_batch",
+        json={"transactions": [first_payload, second_payload]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"predictions"}
+    assert len(body["predictions"]) == 2
+    assert [prediction["transaction_id"] for prediction in body["predictions"]] == ["first", "second"]
+    for prediction in body["predictions"]:
+        assert set(prediction) == {"risk_score", "label", "transaction_id"}
+        assert 0 <= prediction["risk_score"] <= 1
+        assert prediction["label"] in {"fraud", "normal"}
+
+
+def test_predict_batch_empty_batch_returns_400(client):
+    response = client.post("/predict_batch", json={"transactions": []})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "No transactions provided."
+
+
 def test_explain_returns_expected_schema(client):
     response = client.post("/explain", json=make_payload())
 
@@ -110,4 +141,3 @@ def test_invalid_input_returns_422(client):
     response = client.post("/predict", json=payload)
 
     assert response.status_code == 422
-

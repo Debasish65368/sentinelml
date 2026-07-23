@@ -14,6 +14,7 @@ FEATURE_COLUMNS = [f"V{i}" for i in range(1, 29)] + [
     "hour_cos",
 ]
 REQUEST_TIMEOUT_SECONDS = 30
+BATCH_SIZE = 500
 
 
 def validate_columns(df):
@@ -50,17 +51,32 @@ def predict_transactions(df):
     rows = []
     progress = st.progress(0, text="Scoring transactions...")
     total_rows = len(df)
+    total_chunks = (total_rows + BATCH_SIZE - 1) // BATCH_SIZE
 
-    for position, (index, row) in enumerate(df.iterrows(), start=1):
-        prediction = post_json("/predict", build_payload(row, index))
-        rows.append(
-            {
-                "transaction_index": index,
-                "risk_score": prediction["risk_score"],
-                "label": prediction["label"],
-            }
+    for chunk_number, start in enumerate(range(0, total_rows, BATCH_SIZE), start=1):
+        chunk = df.iloc[start : start + BATCH_SIZE]
+        payload = {
+            "transactions": [
+                build_payload(row, index)
+                for index, row in chunk.iterrows()
+            ]
+        }
+        batch_response = post_json("/predict_batch", payload)
+
+        for index, prediction in zip(chunk.index, batch_response["predictions"]):
+            rows.append(
+                {
+                    "transaction_index": index,
+                    "risk_score": prediction["risk_score"],
+                    "label": prediction["label"],
+                }
+            )
+
+        scored_rows = min(start + len(chunk), total_rows)
+        progress.progress(
+            chunk_number / total_chunks,
+            text=f"Scored {scored_rows} of {total_rows} transactions...",
         )
-        progress.progress(position / total_rows, text=f"Scored {position} of {total_rows} transactions...")
 
     progress.empty()
     results = pd.DataFrame(rows).sort_values("risk_score", ascending=False, ignore_index=True)

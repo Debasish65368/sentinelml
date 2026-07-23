@@ -61,3 +61,10 @@ class ExplainResponse(BaseModel):
     shap_contributions: list[ShapContribution]
     explanation: str
 
+
+class PredictBatchRequest(BaseModel):
+    transactions: list[TransactionInput]
+
+
+class PredictBatchResponse(BaseModel):
+    predictions: list[PredictResponse]
