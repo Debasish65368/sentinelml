@@ -236,17 +236,19 @@ $env:SENTINELML_API_BASE_URL="http://localhost:8000"
 
 ## Project Structure
 
+```
 sentinelml/
-├── api/ FastAPI app (main.py, schemas.py)
-├── src/ Core pipeline logic (data, features, training, autoencoder, explain)
-├── streamlit_app/ Demo UI
-├── notebooks/ EDA and interactive result viewing (calls into src/)
-├── experiments/ Per-experiment findings and decisions (experiment_00 → 09)
-├── tests/ Pytest suite covering pipeline, models, API
-├── models/ Trained model artifact (tuned_xgboost.json)
-├── mlruns/ MLflow experiment tracking (local)
-├── DESIGN_DECISIONS.md One-line rationale for every major architecture choice
+├── api/                  FastAPI app (main.py, schemas.py)
+├── src/                  Core pipeline logic (data, features, training, autoencoder, explain)
+├── streamlit_app/        Demo UI
+├── notebooks/            EDA and interactive result viewing (calls into src/)
+├── experiments/          Per-experiment findings and decisions (experiment_00 → 09)
+├── tests/                Pytest suite covering pipeline, models, API
+├── models/                Trained model artifact (tuned_xgboost.json)
+├── mlruns/                MLflow experiment tracking (local)
+├── DESIGN_DECISIONS.md    One-line rationale for every major architecture choice
 └── requirements.txt
+```
 
 
 Each `experiments/experiment_NN.md` documents what was tried, why, the result, and the decision made — a full reasoning trail from raw data to deployed system.
