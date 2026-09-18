@@ -11,6 +11,7 @@ mlruns/
 **pycache**/
 venv/
 .env
+.streamlit/secrets.toml
 *.pyc
 .ipynb_checkpoints
 tmp_pytest/

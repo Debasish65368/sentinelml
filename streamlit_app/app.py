@@ -4,9 +4,28 @@ import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
+from dotenv import load_dotenv
 
+from streamlit_app._explain_client import get_sentinel_api_key as _get_key_impl
+
+load_dotenv()
 
 API_BASE_URL = os.getenv("SENTINELML_API_BASE_URL", "http://localhost:8000").rstrip("/")
+
+
+def get_sentinel_api_key():
+    """Return the SENTINEL_API_KEY for /explain requests.
+
+    Resolution order:
+    1. Streamlit secrets (st.secrets["SENTINEL_API_KEY"]) — used on Streamlit Cloud.
+    2. Environment variable SENTINEL_API_KEY — used locally via .env or shell export.
+
+    Returns None if the key is not configured in either location.
+    The key value is never logged, printed, or shown in the UI.
+    """
+    return _get_key_impl(st_secrets=st.secrets)
+
+
 FEATURE_COLUMNS = [f"V{i}" for i in range(1, 29)] + [
     "Amount",
     "hour_of_day",
@@ -29,10 +48,10 @@ def build_payload(row, transaction_id):
     return payload
 
 
-def post_json(endpoint, payload):
+def post_json(endpoint, payload, headers=None):
     url = f"{API_BASE_URL}{endpoint}"
     try:
-        response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = requests.post(url, json=payload, headers=headers or {}, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
     except requests.exceptions.ConnectionError as exc:
         raise RuntimeError(
@@ -45,6 +64,22 @@ def post_json(endpoint, payload):
         detail = response.text if "response" in locals() else str(exc)
         raise RuntimeError(f"The SentinelML API returned an error for {endpoint}: {detail}") from exc
     return response.json()
+
+
+def post_explain(payload):
+    """Call POST /explain with the X-API-Key header.
+
+    Reads the key from st.secrets or the environment. Shows a clear
+    configuration error if the key is absent — never exposes the key value.
+    """
+    api_key = get_sentinel_api_key()
+    if not api_key:
+        raise RuntimeError(
+            "SENTINEL_API_KEY is not configured. "
+            "Set it in your .env file (local) or Streamlit secrets (Streamlit Cloud) "
+            "to enable the Explain feature."
+        )
+    return post_json("/explain", payload, headers={"X-API-Key": api_key})
 
 
 def predict_transactions(df):
@@ -183,7 +218,7 @@ selected_index = st.selectbox(
 if st.button("Explain Selected Transaction"):
     selected_row = st.session_state.transactions.loc[selected_index]
     try:
-        explanation = post_json("/explain", build_payload(selected_row, selected_index))
+        explanation = post_explain(build_payload(selected_row, selected_index))
     except RuntimeError as exc:
         st.error(str(exc))
         st.stop()
