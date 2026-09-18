@@ -5,6 +5,8 @@ data/processed/*
 models/*
 !models/.gitkeep
 !models/tuned_xgboost.json
+!models/tuned_xgboost_final.json
+!models/tuned_xgboost_threshold.json
 mlruns/
 **pycache**/
 venv/

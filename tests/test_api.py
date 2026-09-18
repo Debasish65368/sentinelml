@@ -58,13 +58,16 @@ def client(monkeypatch):
     def fake_load_model_resources():
         return {
             "model": model,
+            "threshold": 0.5,
             "shap_explainer": shap.TreeExplainer(model),
             "scaler": None,
             "model_version": "test-model",
         }
 
+    monkeypatch.setenv("SENTINEL_API_KEY", "test-secret-key")
     monkeypatch.setattr(api_main, "load_model_resources", fake_load_model_resources)
     monkeypatch.setattr(api_main, "generate_explanation", lambda *args, **kwargs: "Mock explanation.")
+    monkeypatch.setattr(api_main, "validate_explanation_accuracy", lambda *args, **kwargs: True)
     with TestClient(api_main.app) as test_client:
         yield test_client
 
@@ -122,7 +125,7 @@ def test_predict_batch_empty_batch_returns_400(client):
 
 
 def test_explain_returns_expected_schema(client):
-    response = client.post("/explain", json=make_payload())
+    response = client.post("/explain", json=make_payload(), headers={"X-API-Key": "test-secret-key"})
 
     assert response.status_code == 200
     body = response.json()
@@ -132,6 +135,27 @@ def test_explain_returns_expected_schema(client):
     assert len(body["shap_contributions"]) == len(api_main.FEATURE_COLUMNS)
     assert {"feature", "value", "contribution"}.issubset(body["shap_contributions"][0])
     assert body["explanation"] == "Mock explanation."
+
+
+def test_explain_rejects_missing_api_key(client):
+    response = client.post("/explain", json=make_payload())
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Missing API Key"
+
+
+def test_explain_rejects_incorrect_api_key(client):
+    response = client.post("/explain", json=make_payload(), headers={"X-API-Key": "wrong-key"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid API Key"
+
+
+def test_cors_headers(client):
+    response = client.options("/explain", headers={
+        "Origin": "http://localhost:8501",
+        "Access-Control-Request-Method": "POST",
+    })
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:8501"
 
 
 def test_invalid_input_returns_422(client):

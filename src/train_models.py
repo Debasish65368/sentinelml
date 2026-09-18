@@ -130,6 +130,20 @@ def _log_metrics(metrics):
             mlflow.log_metric(metric_name, metric_value)
 
 
+
+def select_optimal_threshold(y_true, y_proba):
+    from sklearn.metrics import f1_score
+    import numpy as np
+    best_threshold = 0.5
+    best_f1 = -1.0
+    for threshold in np.arange(0.5, 1.0, 0.01):
+        preds = (y_proba >= threshold).astype(int)
+        f1 = f1_score(y_true, preds)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = threshold
+    return round(float(best_threshold), 2)
+
 def train_logistic_baseline(X_train, y_train, X_val, y_val, method="class_weight"):
     """Train and evaluate a Logistic Regression fraud baseline."""
     _configure_mlflow()
