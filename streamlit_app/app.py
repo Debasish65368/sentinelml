@@ -6,7 +6,10 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
-from streamlit_app._explain_client import get_sentinel_api_key as _get_key_impl
+try:
+    from ._explain_client import get_sentinel_api_key as _get_key_impl
+except ImportError:
+    from _explain_client import get_sentinel_api_key as _get_key_impl
 
 load_dotenv()
 
