@@ -2,7 +2,7 @@
 
 ## What I did
 Built generate_explanation() which takes SHAP's top 5 feature contributions plus 
-the model's predicted probability, and prompts Groq (llama-3.3-70b-versatile) to 
+the model's predicted probability, and prompts Groq (openai/gpt-oss-120b) to 
 produce a 2-3 sentence plain-English rationale for a fraud analyst — grounded in 
 the actual SHAP values, not generic LLM knowledge about fraud.
 

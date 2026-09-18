@@ -84,7 +84,7 @@ flowchart TB
     end
 
     SHAP["📊 shap.TreeExplainer\nper-prediction attribution"]
-    Groq["🧠 Groq (llama-3.3-70b-versatile)\nSHAP → plain English"]
+    Groq["🧠 Groq (openai/gpt-oss-120b)\nSHAP → plain English"]
 
     subgraph UI["🖥️ Streamlit (streamlit_app/app.py)"]
         Upload["Upload CSV"]
@@ -305,7 +305,7 @@ Every prediction can be broken down into per-feature contributions using SHAP (S
 
 ## 🧠 GenAI Explanation Layer
 
-SHAP output alone is a table of numbers representing contributions in the model's raw log-odds output space (relative to the dataset base value), rather than direct percentage-point changes in probability — not immediately intuitive to a non-technical fraud analyst. A lightweight GenAI layer (Groq, `llama-3.3-70b-versatile`) converts these SHAP contributions into a short, plain-English rationale.
+SHAP output alone is a table of numbers representing contributions in the model's raw log-odds output space (relative to the dataset base value), rather than direct percentage-point changes in probability — not immediately intuitive to a non-technical fraud analyst. A lightweight GenAI layer (Groq, `openai/gpt-oss-120b`) converts these SHAP contributions into a short, plain-English rationale.
 
 ```mermaid
 sequenceDiagram
@@ -501,7 +501,7 @@ Each `experiments/experiment_NN.md` documents what was tried, why, the result, a
 | Threshold selection | scikit-learn `f1_score` sweep | Business-relevant decision cutoff, not a default 0.5 |
 | Deep learning | PyTorch | Autoencoder for anomaly detection |
 | Explainability | SHAP | Per-prediction feature attribution |
-| GenAI | Groq API (`llama-3.3-70b-versatile`) | Plain-English explanation generation, with fallback |
+| GenAI | Groq API (`openai/gpt-oss-120b`) | Plain-English explanation generation, with fallback |
 | Experiment tracking | MLflow | Logging params, metrics, artifacts across all runs |
 | Backend API | FastAPI, Uvicorn, `secrets.compare_digest` | Model serving, CORS, constant-time API-key auth |
 | Frontend | Streamlit, Altair | Interactive demo UI + SHAP contribution charts |

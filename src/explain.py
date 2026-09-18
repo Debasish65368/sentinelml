@@ -6,7 +6,7 @@ from groq import Groq
 
 
 EDA_TOP_CORRELATED_FEATURES = ["V17", "V14", "V12", "V10", "V16", "V3", "V7", "V11", "V4", "V18"]
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def compute_shap_values(model, X):
